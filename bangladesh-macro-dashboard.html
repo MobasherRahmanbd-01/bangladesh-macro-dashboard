@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bangladesh Macro Economic Dashboard | 2010-2025</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--card2:#273549;--text:#e2e8f0;--muted:#94a3b8;--accent:#22c55e;--accent2:#38bdf8;--warn:#f59e0b;--danger:#ef4444}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{padding:20px 28px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;background:#0b1226;border-bottom:1px solid #334155;position:sticky;top:0;z-index:10}
+h1{margin:0;font-size:22px}h1 span{color:var(--accent2)}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.btn{background:var(--accent);border:0;color:#052e16;font-weight:700;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px}
+.btn.secondary{background:#334155;color:white}.btn:hover{opacity:.9}
+.wrap{padding:20px 28px;max-width:1300px;margin:auto}
+.grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}
+.kpi{background:var(--card);border:1px solid #334155;border-radius:14px;padding:14px}
+.kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.kpi .val{font-size:22px;font-weight:800;margin:6px 0 2px}.kpi .chg{font-size:12px}.up{color:var(--accent)}.down{color:var(--danger)}.flat{color:var(--warn)}
+.grid-charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid #334155;border-radius:16px;padding:16px}
+.card h3{margin:0 0 4px;font-size:16px}.card p.desc{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+canvas{max-height:280px}
+.src{font-size:12px;margin-top:8px}.src a{color:var(--accent2);text-decoration:none}.src a:hover{text-decoration:underline}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card);border-radius:12px;overflow:hidden}
+th,td{padding:8px 10px;border-bottom:1px solid #334155;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#0b1226;position:sticky;top:0}
+.table-wrap{overflow:auto;max-height:520px;border:1px solid #334155;border-radius:12px;margin-top:12px}
+.section{background:var(--card);border:1px solid #334155;border-radius:16px;padding:18px;margin:18px 0}
+.section h2{margin-top:0}.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.b-red{background:#3f1d1d;color:#fca5a5}.b-yellow{background:#422006;color:#fcd34d}.b-green{background:#052e16;color:#86efac}.b-blue{background:#0c2a4a;color:#7dd3fc}
+ul{line-height:1.6}li{margin-bottom:6px}
+footer{color:var(--muted);font-size:12px;padding:20px;text-align:center}
+a{color:var(--accent2)}
+#status{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+<div>
+<h1>🇧🇩 Bangladesh Macro Dashboard <span>2010–Sep 2026</span></h1>
+<div class="sub">Annual: World Bank WDI API (auto-refresh) | Monthly: Bangladesh Bank / BBS (till last available month) | Last update: <span id="updated">—</span> | <span id="status">Loaded fallback (verified Sep 22 2026)</span></div>
+</div>
+<div>
+<button class="btn" id="refreshBtn" onclick="refreshAll()">⟳ Refresh Live Data</button>
+<button class="btn secondary" onclick="window.print()">⬇ Export / Print</button>
+</div>
+</header>
+
+<div class="wrap">
+<div class="grid-kpi" id="kpis"></div>
+
+<div class="section" style="border-color:#22c55e">
+<h2>🟢 Monthly Pulse — Till Last Available Month (<span id="monthlyTitle">…</span>)</h2>
+<p><span id="monthlyBadges"><span class="badge b-green">loading…</span></span>
+<span style="color:var(--muted);font-size:12px">Auto from <code>data/monthly.json</code> — edit that 1 file only. Annual is auto via Action. BB has no API, so monthly stays manual.</span></p>
+<div class="grid-kpi" id="monthlyKpis"></div>
+<div class="grid-charts">
+<div class="card"><h3>Reserves + Remittance (monthly)</h3><canvas id="cMonthly"></canvas><div class="src">Sources: <a href="https://www.bb.org.bd/en/index.php/econdata/intreserve" target="_blank">BB Reserves ↗</a> | <a href="https://www.bb.org.bd/en/index.php/econdata/wageremitance" target="_blank">BB Remittance ↗</a></div></div>
+<div class="card"><h3>Monthly table (Jul 2025–Aug 2026)</h3><div class="table-wrap" style="max-height:280px"><table><thead><tr><th>Month</th><th>Res Gross $m</th><th>Res BPM6 $m</th><th>Remit $m</th><th>Infl ptp</th></tr></thead><tbody id="monthlyBody"></tbody></table></div><div class="src">Verify: <a href="https://www.bb.org.bd/en/index.php/econdata/inflation" target="_blank">Inflation ↗</a> | <a href="https://www.bb.org.bd/en/index.php/econdata/exchangerate" target="_blank">FX Today ↗</a> | <a href="https://www.bb.org.bd/en/index.php/econdata/rfrexrate" target="_blank">Ref Rate ↗</a><br>To update next month: open BB links → copy 1 row → paste into MONTHLY in file (2 min). Annual Refresh button never overwrites this.</div></div>
+</div>
+</div>
+
+<div class="section">
+<h2>📌 Executive Summary — Where Bangladesh Stands (<span id="sumDate">Sep 2026</span>) <span style="font-size:12px;color:var(--muted)">auto-updates on Refresh</span></h2>
+<p><span class="badge b-yellow" id="sumBadge1">SLOWDOWN + HIGH INFLATION + EXTERNAL SHOCK</span> <span class="badge b-red">ENERGY VULNERABLE</span> <span class="badge b-green" id="sumBadge2">REMITTANCE BUFFER</span></p>
+<ul id="sumList">
+<li><b>Growth halved:</b> 7.1% (2022) → 5.78% (2023) → 4.22% (2024) → <b>3.49% (2025)</b> — slowest in 15y excl. 2020 Covid (3.45%). IMF est. $456.3bn GDP 2025, $2,597 per-capita.</li>
+<li><b>Inflation stuck high:</b> 7.7% (2022) → 9.88% (2023) → 10.47% (2024) → <b>8.77% (2025)</b>. Feb 2026 still 9.13%, July 9.16% (food 9.3%). Pre-2022 avg was ~5.5-6%.</li>
+<li><b>Taka devalued:</b> 91.7 (2022) → 106.3 (2023) → 115.6 (2024) → <b>121.9 BDT/USD (2025 avg)</b> — World Bank PA.NUS.FCRF. Open market touched 123 in 2026.</li>
+<li><b>Reserves crashed then stabilised:</b> $46.1bn (2021) → $33.7bn (2022) → $21.4bn (2024) → <b>$28.56bn (2025)</b>. Bangladesh Bank gross $37.58bn July 2026 (NIR $32.93bn) after buying $4.3bn.</li>
+<li><b>Lifeline — remittances record:</b> $21.5bn (2022) → $22.07bn (2023) → $27.5bn (2024) → <b>$33.88bn (2025)</b> — cushions current account (-3.81% GDP 2022 → -0.05% 2025).</li>
+<li><b>Trade gap wide:</b> 2025 exports $50.7bn vs imports $76.8bn. Imports spiked $96.1bn in 2022 on energy. Energy import bill ~$12bn/yr; +$10 oil = +$900m cost.</li>
+<li><b>Debt manageable but rising:</b> External debt 20.2% GNI (2022) → 22.25% (2024). Govt debt ~40.2% GDP (2026). LDC graduation Nov 2026.</li>
+</ul>
+<p style="color:var(--muted);font-size:12px">Pipeline: static file → on Refresh, JS fetches World Bank WDI JSON → rewrites this list from live DATA. Monthly BB numbers stay manual (see Monthly Pulse). Narrative judgments (e.g. SLOWDOWN) are rule-based thresholds, not AI.</p>
+</div>
+
+<div class="section">
+<h2>🌍 Geopolitics & What to Expect</h2>
+<p><b>Trigger:</b> US-Israel-Iran war (Feb 2026–), Hormuz closure (20% world oil), Qatar LNG force majeure, Ras Laffan -17% capacity, Brent $72 → $118 Mar → ~$70 Jul → $109 early Sep. China fuel-export ban tightens Asia diesel/jet.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+<div><span class="badge b-red">SANEM worst case -3% GDP in 2y</span><ul><li>Energy +40% oil / +50% LNG alone: -1.2% GDP, exports -2%</li><li>Freight +25% + EU/US demand -5%: -1.4% GDP, exports -3.4%</li><li>Combined + remittance -10%: -3% GDP, exports -6%, garments -4.5%, transport -5%</li></ul></div>
+<div><span class="badge b-yellow">7 shocks to watch</span><ul><li>Import/export costs, taka/reserves, power cuts, fertilizer (30% urea via Hormuz), food inflation, Gulf jobs (8.6m workers), investment freeze</li><li>On ground: 1.5km fuel queues, Eastern Refinery 2/5 units shut, universities early shut Mar 9, malls 7pm shut, 4/5 fertilizer plants shut</li></ul></div>
+<div><span class="badge b-blue">Base vs Downside</span><ul><li><b>Base (if Hormuz reopens):</b> growth 4.5-4.7% 2026, inflation eases to 7-8%, reserves rebuild on remittances</li><li><b>Downside (prolonged):</b> growth 3-3.5%, inflation 9-10%, taka 125+, power rationing hits garments</li><li><b>Buffers:</b> diversify energy/solar, $2bn+ external fuel financing, formal remittances, India diesel 15k t/mo</li></ul></div>
+</div>
+<p style="color:var(--muted);font-size:13px">Sources: SANEM GTAP Mar 16 2026, Daily Star, Dhaka Tribune Mar 28 2026, NYT Mar 16 2026, Prothom Alo Mar 9 2026, bdnews24 Apr 18 2026, World Bank WDI Jul 13 2026.</p>
+</div>
+
+<div class="grid-charts">
+<div class="card"><h3>GDP Growth (annual %)</h3><p class="desc">Collapse from 7%+ to 3.5%. 2020 Covid and 2024-25 double dip clearly visible.</p><canvas id="cGrowth"></canvas><div class="src">Source: World Bank NY.GDP.MKTP.KD.ZG — <a href="https://data.worldbank.org/indicator/NY.GDP.MKTP.KD.ZG?locations=BD" target="_blank">Check data ↗</a> | API: <a href="https://api.worldbank.org/v2/country/BGD/indicator/NY.GDP.MKTP.KD.ZG?format=json&date=2010:2025" target="_blank">JSON ↗</a></div></div>
+<div class="card"><h3>GDP Nominal (US$ bn) & Per Capita (US$)</h3><p class="desc">Nominal stalled 2022-25 on taka fall despite real output rise.</p><canvas id="cGDP"></canvas><div class="src">Source: NY.GDP.MKTP.CD / NY.GDP.PCAP.CD — <a href="https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=BD" target="_blank">GDP ↗</a> <a href="https://data.worldbank.org/indicator/NY.GDP.PCAP.CD?locations=BD" target="_blank">Per-capita ↗</a></div></div>
+<div class="card"><h3>Inflation CPI (annual %)</h3><p class="desc">Double-digit 2024 (10.47%), still 8.77% 2025 vs 5.5% norm.</p><canvas id="cInfl"></canvas><div class="src">Source: FP.CPI.TOTL.ZG — <a href="https://data.worldbank.org/indicator/FP.CPI.TOTL.ZG?locations=BD" target="_blank">Check ↗</a></div></div>
+<div class="card"><h3>Taka per USD & FX Reserves</h3><p class="desc">Taka 69.6 (2010) → 121.9 (2025). Reserves peak 2021 then -54% to 2024.</p><canvas id="cFX"></canvas><div class="src">Source: PA.NUS.FCRF / FI.RES.TOTL.CD — <a href="https://data.worldbank.org/indicator/PA.NUS.FCRF?locations=BD" target="_blank">FX ↗</a> <a href="https://www.bb.org.bd/en/index.php/econdata/forexreserve" target="_blank">Bangladesh Bank Reserves ↗</a></div></div>
+<div class="card"><h3>Remittances Received (US$ bn)</h3><p class="desc">Record $33.9bn 2025 = key buffer for reserves + consumption.</p><canvas id="cRem"></canvas><div class="src">Source: BX.TRF.PWKR.CD.DT — <a href="https://data.worldbank.org/indicator/BX.TRF.PWKR.CD.DT?locations=BD" target="_blank">Check ↗</a> <a href="https://www.bb.org.bd/en/index.php/econdata/wageremittance" target="_blank">BB Remittance ↗</a></div></div>
+<div class="card"><h3>Exports vs Imports (US$ bn)</h3><p class="desc">Persistent deficit; 2022 import surge drove crisis.</p><canvas id="cTrade"></canvas><div class="src">Source: NE.EXP.GNFS.CD / NE.IMP.GNFS.CD — <a href="https://data.worldbank.org/indicator/NE.EXP.GNFS.CD?locations=BD" target="_blank">Exports ↗</a> <a href="https://www.bb.org.bd/en/index.php/econdata/exportimport" target="_blank">BB Trade ↗</a></div></div>
+<div class="card"><h3>Current Account (% GDP) & External Debt (% GNI)</h3><p class="desc">CA -3.8% 2022 → near balance 2025 on import squeeze + remittances.</p><canvas id="cCA"></canvas><div class="src">Source: BN.CAB.XOKA.GD.ZS / DT.DOD.DECT.GN.ZS — <a href="https://data.worldbank.org/indicator/BN.CAB.XOKA.GD.ZS?locations=BD" target="_blank">CA ↗</a></div></div>
+<div class="card"><h3>How to use Refresh</h3><p class="desc">Refresh pulls live World Bank WDI (updated Jul 13 2026). Bangladesh Bank & IMF update monthly — use links.</p><ul style="font-size:13px"><li>Click <b>⟳ Refresh Live Data</b> — needs internet.</li><li>If offline, fallback verified data shows.</li><li>All charts + KPIs + table update + timestamp.</li></ul><div class="src">IMF: <a href="https://www.imf.org/en/Countries/BGD" target="_blank">IMF Bangladesh ↗</a> | <a href="https://www.imf.org/en/Publications/WEO" target="_blank">WEO ↗</a><br>BB: <a href="https://www.bb.org.bd/en/index.php/econdata" target="_blank">All Econ Data ↗</a> | <a href="https://www.bb.org.bd/en/index.php/monetarypolicy/mpr" target="_blank">Monetary Policy ↗</a> | <a href="https://bbs.gov.bd/" target="_blank">BBS ↗</a></div></div>
+</div>
+
+<div class="section">
+<h2>📋 Data Table 2010–2025 (click header to sort visually, Refresh to update)</h2>
+<div class="table-wrap"><table id="dataTable"><thead><tr><th>Year</th><th>GDP gr %</th><th>GDP $bn</th><th>Per-cap $</th><th>Infl %</th><th>BDT/USD</th><th>Res $bn</th><th>Remit $bn</th><th>Exp $bn</th><th>Imp $bn</th><th>CA %GDP</th><th>ExtDebt %GNI</th></tr></thead><tbody></tbody></table></div>
+<div class="src">Direct source-data links (open to verify): 
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/NY.GDP.MKTP.KD.ZG?format=json&date=2010:2025" target="_blank">Growth JSON</a> •
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/NY.GDP.MKTP.CD?format=json&date=2010:2025" target="_blank">GDP JSON</a> •
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/FP.CPI.TOTL.ZG?format=json&date=2010:2025" target="_blank">Inflation JSON</a> •
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/PA.NUS.FCRF?format=json&date=2010:2025" target="_blank">FX JSON</a> •
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/FI.RES.TOTL.CD?format=json&date=2010:2025" target="_blank">Reserves JSON</a> •
+<a href="https://api.worldbank.org/v2/country/BGD/indicator/BX.TRF.PWKR.CD.DT?format=json&date=2010:2025" target="_blank">Remit JSON</a>
+</div>
+</div>
+
+<div class="section">
+<h2>🔗 Authentic Source Library (one-click verification)</h2>
+<ul>
+<li><b>World Bank WDI — Bangladesh:</b> <a href="https://data.worldbank.org/country/bangladesh" target="_blank">Country page ↗</a></li>
+<li><b>IMF Bangladesh:</b> <a href="https://www.imf.org/en/Countries/BGD" target="_blank">Article IV / WEO ↗</a> | WEO Apr 2026 growth 4.7% 2026f, 3.5% 2027f</li>
+<li><b>Bangladesh Bank:</b> <a href="https://www.bb.org.bd/en/index.php/econdata" target="_blank">Econ Data Dashboard ↗</a> | <a href="https://www.bb.org.bd/en/index.php/econdata/inflation" target="_blank">Inflation ↗</a> | <a href="https://www.bb.org.bd/en/index.php/econdata/exchangerate" target="_blank">Exchange Rate ↗</a></li>
+<li><b>BBS / Finance:</b> <a href="https://bbs.gov.bd/" target="_blank">BBS ↗</a> | <a href="https://mof.gov.bd/" target="_blank">Budget ↗</a></li>
+<li><b>Energy crisis reporting:</b> <a href="https://www.thedailystar.net/business/economy/news/iran-war-could-wipe-out-3-bangladesh-gdp-4129661" target="_blank">SANEM -3% GDP ↗</a> | <a href="https://bdnews24.com/business/d928bbe7ba24" target="_blank">Eastern Refinery ↗</a> | <a href="https://en.prothomalo.com/bangladesh/ln4pdd7q23" target="_blank">Fuel queues ↗</a></li>
+</ul>
+</div>
+
+</div>
+<footer>Built Sep 22 2026 • Data: World Bank WDI (lastupdated 2026-07-13), IMF WEO, Bangladesh Bank • For education, not investment advice. Always click source links to verify.</footer>
+
+<script>
+// Fallback verified from World Bank API Jul 13 2026
+const FALLBACK = {
+years:[2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+growth:[5.57,6.46,6.52,6.01,6.06,6.55,7.11,6.59,7.32,7.88,3.45,6.94,7.10,5.78,4.22,3.49],
+gdp:[115.28,128.61,133.31,150.00,172.89,195.15,265.22,293.73,321.36,351.23,373.98,416.27,460.13,437.42,450.12,456.32],
+pcap:[757,837,860,958,1094,1224,1649,1811,1965,2130,2249,2483,2716,2551,2593,2597],
+infl:[8.13,11.40,6.22,7.53,6.99,6.19,5.51,5.70,5.54,5.59,5.69,5.55,7.70,9.88,10.47,8.77],
+fx:[69.65,74.15,81.86,78.10,77.64,77.95,78.47,80.44,83.47,84.45,84.87,85.08,91.75,106.31,115.60,121.92],
+res:[11.17,9.17,12.75,18.09,22.32,27.49,32.28,33.43,32.03,32.70,43.17,46.17,33.75,21.86,21.39,28.56],
+remit:[10.85,12.07,14.12,13.87,14.99,15.30,13.57,13.50,15.57,18.36,21.75,22.21,21.51,22.07,27.52,33.88],
+exp:[18.47,25.62,26.88,29.31,32.83,33.83,36.92,37.66,40.73,45.99,39.05,44.39,59.28,57.55,47.09,50.72],
+imp:[25.11,35.37,37.26,40.14,44.13,48.30,46.18,50.46,63.76,64.92,59.20,71.02,96.16,77.97,73.45,76.82],
+ca:[1.83,-0.13,1.93,1.37,0.44,1.32,0.35,-2.04,-2.21,-0.84,0.32,-3.79,-3.81,-1.65,-0.67,-0.05],
+debt:[21.32,19.49,20.16,20.03,19.13,18.66,14.97,16.81,17.09,17.09,18.89,20.88,20.27,22.29,22.25,null]
+};
+let DATA = JSON.parse(JSON.stringify(FALLBACK));
+// Monthly pulse — verified Sep 22 2026 from BB/BBS. Update 1 row/month from source links.
+const MONTHLY=[
+{m:"Jul 2025",res:29799.8,bpm6:24779.1,remit:2477.87,infl:null},
+{m:"Aug 2025",res:31166.2,bpm6:26173.7,remit:2421.89,infl:8.29},
+{m:"Sep 2025",res:31426.8,bpm6:26603.7,remit:2685.56,infl:null},
+{m:"Oct 2025",res:32335.2,bpm6:27577.7,remit:2562.44,infl:null},
+{m:"Nov 2025",res:31093.4,bpm6:26395.8,remit:2889.73,infl:null},
+{m:"Dec 2025",res:33189.8,bpm6:28589.2,remit:3223.67,infl:null},
+{m:"Jan 2026",res:33178.6,bpm6:28682.8,remit:3171.63,infl:null},
+{m:"Feb 2026",res:35109.2,bpm6:30357.0,remit:3019.45,infl:9.13},
+{m:"Mar 2026",res:34116.6,bpm6:29501.2,remit:3752.21,infl:null},
+{m:"Apr 2026",res:35108.4,bpm6:30428.5,remit:3127.30,infl:null},
+{m:"May 2026",res:34476.6,bpm6:29792.0,remit:3442.58,infl:null},
+{m:"Jun 2026",res:37578.0,bpm6:32907.2,remit:2819.03,infl:null},
+{m:"Jul 2026",res:36422.2,bpm6:31578.0,remit:2858.68,infl:8.32},
+{m:"Aug 2026",res:37352.3,bpm6:32442.3,remit:null,infl:8.26}
+];
+function renderMonthly(){
+const tb=document.getElementById("monthlyBody");
+if(tb) tb.innerHTML=[...MONTHLY].reverse().map(r=>`<tr><td><b>${r.m}</b></td><td>${r.res==null?"—":r.res.toLocaleString()}</td><td>${r.bpm6==null?"—":r.bpm6.toLocaleString()}</td><td>${r.remit==null?"—":r.remit.toLocaleString()}</td><td>${r.infl==null?"—":r.infl.toFixed(2)+"%"}</td></tr>`).join("");
+const labels=MONTHLY.map(r=>r.m);
+if(document.getElementById("cMonthly")){
+if(charts["cMonthly"])charts["cMonthly"].destroy();
+charts["cMonthly"]=new Chart(document.getElementById("cMonthly"),{type:"line",data:{labels:labels,datasets:[{label:"Res Gross $m",data:MONTHLY.map(r=>r.res),borderColor:"#38bdf8",backgroundColor:"#38bdf833",fill:true,tension:.3},{label:"Remit $m",data:MONTHLY.map(r=>r.remit),borderColor:"#22c55e",tension:.3}]},options:{responsive:true,plugins:{legend:{labels:{color:"#e2e8f0"}}},scales:{x:{ticks:{color:"#94a3b8",maxRotation:60,minRotation:45}},y:{ticks:{color:"#94a3b8"},grid:{color:"#334155"}}}}});
+}
+renderMonthlyPulse();
+}
+function lastValid(key){
+for(let i=MONTHLY.length-1;i>=0;i--){ if(MONTHLY[i][key]!=null) return {row:MONTHLY[i],idx:i}; }
+return null;
+}
+function renderMonthlyPulse(){
+const t=document.getElementById("monthlyTitle"), b=document.getElementById("monthlyBadges"), k=document.getElementById("monthlyKpis");
+if(!t||!b||!k) return;
+const lr=lastValid("res"), lm=lastValid("remit"), li=lastValid("infl");
+const head=MONTHLY[MONTHLY.length-1];
+t.textContent=head?head.m:"—";
+const prevInfl=(()=>{ if(!li) return null; for(let i=li.idx-1;i>=0;i--){ if(MONTHLY[i].infl!=null) return MONTHLY[i]; } return null; })();
+const prevRes=(()=>{ if(!lr) return null; for(let i=lr.idx-1;i>=0;i--){ if(MONTHLY[i].res!=null) return MONTHLY[i]; } return null; })();
+b.innerHTML=`<span class="badge b-green">BB: ${lr?lr.row.m:"—"}</span> <span class="badge b-blue">Remit: ${lm?lm.row.m:"—"}</span> <span class="badge b-yellow">Inflation: ${li?li.row.m+" (BBS)":"—"}</span>`;
+k.innerHTML=`
+<div class="kpi"><div class="label">Inflation ${li?li.row.m:"—"} (ptp)</div><div class="val">${li?li.row.infl.toFixed(2)+"%":"—"}</div><div class="chg flat">${prevInfl?("prev "+prevInfl.m+" "+prevInfl.infl.toFixed(2)+"%"):"BBS point-to-point"}</div></div>
+<div class="kpi"><div class="label">Reserves ${lr?lr.row.m:"—"} (Gross)</div><div class="val">${lr?"$"+(lr.row.res/1000).toFixed(2)+"bn":"—"}</div><div class="chg up">BPM6 ${lr&&lr.row.bpm6!=null?"$"+(lr.row.bpm6/1000).toFixed(2)+"bn":"—"}${prevRes?" | prev "+prevRes.m+" $"+(prevRes.res/1000).toFixed(2)+"bn":""}</div></div>
+<div class="kpi"><div class="label">Remittance ${lm?lm.row.m:"—"}</div><div class="val">${lm?"$"+(lm.row.remit/1000).toFixed(2)+"bn":"—"}</div><div class="chg up">${lm?lm.row.remit.toLocaleString()+"m USD":"—"}</div></div>
+<div class="kpi"><div class="label">FX reference</div><div class="val" style="font-size:15px">See BB daily</div><div class="chg flat"><a href="https://www.bb.org.bd/en/index.php/econdata/exchangerate" target="_blank">BB Exchange ↗</a> • WAR ~122.8 Sep 22</div></div>`;
+}
+let charts={};
+function fmt(n,d=2){if(n==null)return "—";return Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})}
+function renderKPIs(){
+const i=DATA.years.length-1, p=i-1;
+const k=[
+["GDP 2025","$"+fmt(DATA.gdp[i],1)+"bn",(DATA.gdp[i]-DATA.gdp[p]>=0?"+":"")+fmt(DATA.gdp[i]-DATA.gdp[p],1)+"bn YoY",DATA.gdp[i]>=DATA.gdp[p]?"up":"down"],
+["Growth",""+fmt(DATA.growth[i],2)+"%",DATA.growth[i]>4?"weak":"very weak",DATA.growth[i]>=DATA.growth[p]?"up":"down"],
+["Per Capita","$"+fmt(DATA.pcap[i],0),"",DATA.pcap[i]>=DATA.pcap[p]?"up":"down"],
+["Inflation",fmt(DATA.infl[i],2)+"%","from "+fmt(DATA.infl[p],2)+"%",DATA.infl[i]<=DATA.infl[p]?"up":"down"],
+["BDT/USD",fmt(DATA.fx[i],1),"weakening",DATA.fx[i]<=DATA.fx[p]?"up":"down"],
+["Reserves","$"+fmt(DATA.res[i],1)+"bn","from $"+fmt(DATA.res[p],1)+"bn",DATA.res[i]>=DATA.res[p]?"up":"down"],
+["Remittances","$"+fmt(DATA.remit[i],1)+"bn","record high",DATA.remit[i]>=DATA.remit[p]?"up":"down"],
+["Exports","$"+fmt(DATA.exp[i],1)+"bn","",DATA.exp[i]>=DATA.exp[p]?"up":"down"],
+["Imports","$"+fmt(DATA.imp[i],1)+"bn","deficit $"+fmt(DATA.imp[i]-DATA.exp[i],1)+"bn","down"],
+["Curr. Acct",fmt(DATA.ca[i],2)+"% GDP","","flat"]
+];
+document.getElementById("kpis").innerHTML=k.map(x=>`<div class="kpi"><div class="label">${x[0]}</div><div class="val">${x[1]}</div><div class="chg ${x[3]}">${x[2]}</div></div>`).join("");
+}
+function renderTable(){
+const tb=document.querySelector("#dataTable tbody");
+tb.innerHTML=DATA.years.map((y,idx)=>`<tr><td><b>${y}</b></td><td>${fmt(DATA.growth[idx])}</td><td>${fmt(DATA.gdp[idx],1)}</td><td>${fmt(DATA.pcap[idx],0)}</td><td>${fmt(DATA.infl[idx])}</td><td>${fmt(DATA.fx[idx],1)}</td><td>${fmt(DATA.res[idx],1)}</td><td>${fmt(DATA.remit[idx],1)}</td><td>${fmt(DATA.exp[idx],1)}</td><td>${fmt(DATA.imp[idx],1)}</td><td>${fmt(DATA.ca[idx])}</td><td>${DATA.debt[idx]==null?"—":fmt(DATA.debt[idx])}</td></tr>`).reverse().join("");
+}
+function mk(id,type,labels,datasets){
+if(charts[id])charts[id].destroy();
+const ctx=document.getElementById(id);
+charts[id]=new Chart(ctx,{type:type,data:{labels:labels,datasets:datasets},options:{responsive:true,plugins:{legend:{labels:{color:"#e2e8f0"}}},scales:{x:{ticks:{color:"#94a3b8"}},y:{ticks:{color:"#94a3b8"},grid:{color:"#334155"}}}}});
+}
+function renderCharts(){
+const L=DATA.years;
+const grid={color:"#334155"};
+mk("cGrowth","bar",L,[{label:"GDP growth %",data:DATA.growth,backgroundColor:DATA.growth.map(v=>v<4?"#ef4444":v<6?"#f59e0b":"#22c55e")}]);
+mk("cGDP","line",L,[{label:"GDP $bn",data:DATA.gdp,borderColor:"#38bdf8",backgroundColor:"#38bdf833",fill:true,tension:.3},{label:"Per-capita $",data:DATA.pcap,borderColor:"#22c55e",tension:.3,yAxisID:"y1"}]);
+if(charts["cGDP"].options.scales.y1===undefined){charts["cGDP"].options.scales.y1={position:"right",ticks:{color:"#94a3b8"},grid:{drawOnChartArea:false}};charts["cGDP"].update();}
+mk("cInfl","line",L,[{label:"CPI %",data:DATA.infl,borderColor:"#f59e0b",backgroundColor:"#f59e0b33",fill:true,tension:.3}]);
+mk("cFX","line",L,[{label:"BDT/USD",data:DATA.fx,borderColor:"#ef4444",tension:.3,yAxisID:"y"},{label:"Reserves $bn",data:DATA.res,borderColor:"#38bdf8",backgroundColor:"#38bdf833",fill:true,tension:.3,yAxisID:"y1"}]);
+charts["cFX"].options.scales.y1={position:"right",ticks:{color:"#94a3b8"},grid:{drawOnChartArea:false}};charts["cFX"].update();
+mk("cRem","bar",L,[{label:"Remit $bn",data:DATA.remit,backgroundColor:"#22c55e"}]);
+mk("cTrade","line",L,[{label:"Exports",data:DATA.exp,borderColor:"#22c55e",tension:.3},{label:"Imports",data:DATA.imp,borderColor:"#ef4444",tension:.3}]);
+mk("cCA","bar",L,[{label:"CA %GDP",data:DATA.ca,backgroundColor:DATA.ca.map(v=>v<0?"#ef4444":"#22c55e")},{label:"ExtDebt %GNI",data:DATA.debt,type:"line",borderColor:"#38bdf8",tension:.3}]);
+}
+function renderSummary(){
+const idx=y=>DATA.years.indexOf(y);
+const i=DATA.years.length-1, ly=DATA.years[i];
+const g=(y)=>DATA.growth[idx(y)], inf=(y)=>DATA.infl[idx(y)], fx=(y)=>DATA.fx[idx(y)], rs=(y)=>DATA.res[idx(y)], rm=(y)=>DATA.remit[idx(y)], ex=(y)=>DATA.exp[idx(y)], im=(y)=>DATA.imp[idx(y)], ca=(y)=>DATA.ca[idx(y)];
+const lastM=[...MONTHLY].reverse().find(r=>r.infl!=null);
+const lastRes=[...MONTHLY].reverse()[0];
+const tag=g(ly)<4?"CRISIS-SLOWDOWN":g(ly)<5?"SLOWDOWN":"RECOVERY";
+const infTag=inf(ly)>=9?"HIGH INFLATION":inf(ly)>=7?"ELEVATED INFLATION":"INFLATION EASING";
+const b1=document.getElementById("sumBadge1"); if(b1) b1.textContent=tag+" + "+infTag+" + EXTERNAL SHOCK";
+const sd=document.getElementById("sumDate"); if(sd) sd.textContent="Sep 2026 • Annual "+ly+" + Monthly "+lastRes.m;
+const ul=document.getElementById("sumList"); if(!ul) return;
+ul.innerHTML=`
+<li><b>Growth:</b> ${fmt(g(2022))}% (2022) → ${fmt(g(2023))}% (2023) → ${fmt(g(2024))}% (2024) → <b>${fmt(g(ly))}% (${ly})</b> — ${g(ly)<4?"below 4%, recession-like (SANEM warns -3% GDP if Iran war prolongs)":"recovering"}. GDP $${fmt(DATA.gdp[i],1)}bn, $${fmt(DATA.pcap[i],0)} per-capita.</li>
+<li><b>Inflation:</b> ${fmt(inf(2022))}% → ${fmt(inf(2023))}% → ${fmt(inf(2024))}% → <b>${fmt(inf(ly))}% (${ly})</b>. Monthly: ${lastM.m} ${lastM.infl.toFixed(2)}% ptp (BB/BBS). ${inf(ly)>=8?"Stuck high, food/transport passthrough from fuel.":"Easing."}</li>
+<li><b>Taka:</b> ${fmt(fx(2022),1)} → ${fmt(fx(2023),1)} → ${fmt(fx(2024),1)} → <b>${fmt(fx(ly),1)} (${ly} avg)</b>. Spot Sep 22 2026: 122.83 WAR. ${fx(ly)>115?"Sharp depreciation pressures import bill.":"Stable."}</li>
+<li><b>Reserves:</b> $${fmt(rs(2021),1)}bn (2021) → $${fmt(rs(2022),1)}bn → $${fmt(rs(2024),1)}bn → <b>$${fmt(rs(ly),1)}bn (${ly})</b>. BB monthly: ${lastRes.m} $${(lastRes.res/1000).toFixed(2)}bn gross / $${(lastRes.bpm6/1000).toFixed(2)}bn BPM6.</li>
+<li><b>Remittances:</b> $${fmt(rm(2022),1)}bn → $${fmt(rm(2023),1)}bn → $${fmt(rm(2024),1)}bn → <b>$${fmt(rm(ly),1)}bn (${ly})</b> — buffer. CA ${fmt(ca(2022))}% (2022) → <b>${fmt(ca(ly))}% (${ly})</b>.</li>
+<li><b>Trade:</b> ${ly} exports $${fmt(ex(ly),1)}bn vs imports $${fmt(im(ly),1)}bn (deficit $${fmt(im(ly)-ex(ly),1)}bn). 2022 import spike $${fmt(im(2022),1)}bn drove crisis. Energy ~$12bn/yr; +$10 oil = +$900m.</li>
+<li><b>What to expect (rule-based):</b> ${g(ly)<4&&inf(ly)>8?"Base: 4.5% if Hormuz reopens; Downside: 3-3.5% + 9-10% inflation + taka 125+ if prolonged. Watch reserves/remittance monthly above.":"If growth >4% + inflation <7%, shift to recovery watch; else stay defensive."} Geopolitics text below stays manual — update from source links.</li>`;
+}
+async function fetchWB(ind){
+const r=await fetch(`https://api.worldbank.org/v2/country/BGD/indicator/${ind}?format=json&date=2010:2030&per_page=30`);
+const j=await r.json();
+const map={}; (j[1]||[]).forEach(o=>{map[Number(o.date)]=o.value});
+return DATA.years.map(y=>map[y]??null);
+}
+async function loadMonthlyFile(){
+try{
+const r=await fetch("data/monthly.json",{cache:"no-store"});
+if(!r.ok) return false;
+const j=await r.json();
+if(j.rows && j.rows.length){ MONTHLY.splice(0,MONTHLY.length,...j.rows.map(x=>({m:x.m,res:x.res,bpm6:x.bpm6,remit:x.remit,infl:x.infl}))); return true; }
+}catch(e){console.log("monthly file miss",e);}
+return false;
+}
+async function loadAnnualFile(){
+try{
+const r=await fetch("data/annual.json",{cache:"no-store"});
+if(!r.ok) return false;
+const j=await r.json();
+if(!j.years || !j.growth) return false;
+DATA={years:j.years,growth:j.growth,gdp:j.gdp,pcap:j.pcap,infl:j.infl,fx:j.fx,res:j.res,remit:j.remit,exp:j.exp,imp:j.imp,ca:j.ca,debt:j.debt||FALLBACK.debt};
+return j.updated_utc||true;
+}catch(e){console.log("annual file miss",e);return false;}
+}
+async function refreshAll(){
+const btn=document.getElementById("refreshBtn");btn.disabled=true;btn.textContent="⏳ Fetching…";
+document.getElementById("status").textContent="Trying data/*.json (Action) then World Bank live…";
+try{
+await loadMonthlyFile();
+const stamp=await loadAnnualFile();
+if(stamp){
+document.getElementById("updated").textContent=new Date().toLocaleString()+" • Action "+stamp;
+document.getElementById("status").textContent="✅ Via GitHub Action data/*.json (Option 2)";
+}else{
+// fallback direct WB (old path)
+const g=await fetchWB("NY.GDP.MKTP.KD.ZG");
+const gdpRaw=await fetchWB("NY.GDP.MKTP.CD");
+const pcap=await fetchWB("NY.GDP.PCAP.CD");
+const infl=await fetchWB("FP.CPI.TOTL.ZG");
+const fx=await fetchWB("PA.NUS.FCRF");
+const resRaw=await fetchWB("FI.RES.TOTL.CD");
+const remitRaw=await fetchWB("BX.TRF.PWKR.CD.DT");
+const expRaw=await fetchWB("NE.EXP.GNFS.CD");
+const impRaw=await fetchWB("NE.IMP.GNFS.CD");
+const ca=await fetchWB("BN.CAB.XOKA.GD.ZS");
+let debt=null;try{debt=await fetchWB("DT.DOD.DECT.GN.ZS")}catch(e){}
+DATA={years:[...FALLBACK.years],growth:g.map(v=>v==null?null:+v.toFixed(2)),gdp:gdpRaw.map(v=>v==null?null:+(v/1e9).toFixed(2)),pcap:pcap.map(v=>v==null?null:Math.round(v)),infl:infl.map(v=>v==null?null:+v.toFixed(2)),fx:fx.map(v=>v==null?null:+v.toFixed(2)),res:resRaw.map(v=>v==null?null:+(v/1e9).toFixed(2)),remit:remitRaw.map(v=>v==null?null:+(v/1e9).toFixed(2)),exp:expRaw.map(v=>v==null?null:+(v/1e9).toFixed(2)),imp:impRaw.map(v=>v==null?null:+(v/1e9).toFixed(2)),ca:ca.map(v=>v==null?null:+v.toFixed(2)),debt:debt||FALLBACK.debt};
+document.getElementById("updated").textContent=new Date().toLocaleString();
+document.getElementById("status").textContent="✅ Live World Bank direct (Action file missing)";
+}
+}catch(e){document.getElementById("status").textContent="⚠️ Live fetch failed — showing verified fallback. Check internet.";console.error(e);}
+renderKPIs();renderTable();renderCharts();renderMonthly();renderSummary();
+btn.disabled=false;btn.textContent="⟳ Refresh Live Data";
+}
+(async()=>{await loadMonthlyFile();const s=await loadAnnualFile();document.getElementById("updated").textContent=s?("Action "+s+" • page "+new Date().toLocaleString()):"Sep 22, 2026 (WDI Jul 13, 2026)";renderKPIs();renderTable();renderCharts();renderMonthly();renderSummary();})();
+</script>
+</body>
+</html>
