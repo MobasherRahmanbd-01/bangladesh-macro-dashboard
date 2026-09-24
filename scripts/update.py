@@ -1,7 +1,7 @@
 """Option 2 updater: no LLM. Fetches World Bank annual, preserves monthly, writes rule-based summary.
 Runs in GitHub Actions (free) + locally with python 3.11, stdlib only.
 """
-import json, urllib.request, datetime, os
+import json, urllib.request, urllib.error, datetime, os, time
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(BASE, "data")
@@ -21,19 +21,34 @@ INDICATORS = {
     "debt": "DT.DOD.DECT.GN.ZS",
 }
 
-def fetch_wb(code):
+def fetch_wb(code, tries=4):
     url = f"https://api.worldbank.org/v2/country/BGD/indicator/{code}?format=json&date=2010:2030&per_page=30"
-    req = urllib.request.Request(url, headers={"User-Agent": "bd-dashboard/option2"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        j = json.loads(r.read().decode())
-    rows = j[1] if len(j) > 1 and j[1] else []
-    return {int(o["date"]): o["value"] for o in rows}
+    last = None
+    for a in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "bd-dashboard/option2"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                j = json.loads(r.read().decode())
+            rows = j[1] if len(j) > 1 and j[1] else []
+            d = {int(o["date"]): o["value"] for o in rows}
+            if d:
+                return d
+            last = "empty"
+        except Exception as e:
+            last = e
+            print(f"  retry {a+1}/{tries} {code}: {e}")
+            time.sleep(3 + a * 3)
+    print(f"  WARN {code} failed after {tries}, using empty ({last})")
+    return {}
 
 def main():
     print("Fetching World Bank...")
-    raw = {k: fetch_wb(v) for k, v in INDICATORS.items()}
+    raw = {}
+    for k, v in INDICATORS.items():
+        print(f" {k} {v}...")
+        raw[k] = fetch_wb(v)
+        time.sleep(1)
     years = sorted({y for d in raw.values() for y, v in d.items() if v is not None and y >= 2010})
-    # keep years where growth exists (anchor), but include all 2010..max
     if not years:
         raise SystemExit("WB fetch empty, aborting (keeps old files)")
     years = list(range(2010, max(years) + 1))
@@ -65,13 +80,11 @@ def main():
         json.dump(annual, f, indent=1)
     print(f"Wrote annual.json {years[0]}-{years[-1]}")
 
-    # monthly: do NOT overwrite rows automatically (BB has no API). Just ensure file exists.
     mpath = os.path.join(DATA, "monthly.json")
     if not os.path.exists(mpath):
         raise SystemExit("monthly.json missing - keep your manual file")
     print("Kept monthly.json (manual, 2-min update via BB links)")
 
-    # rule-based summary (no LLM) so frontend badges never hallucinate
     i = len(years) - 1
     ly = years[i]
     g, inf = annual["growth"][i], annual["infl"][i]
