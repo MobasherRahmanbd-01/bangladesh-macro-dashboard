@@ -1,0 +1,13 @@
+{
+ "updated_utc": "2026-09-23T11:55:01Z",
+ "annual_through": 2025,
+ "badge1": "CRISIS-SLOWDOWN + ELEVATED INFLATION + EXTERNAL SHOCK",
+ "note": "Rule-based only. Geopolitics prose stays manual until Option 3 (LLM).",
+ "watch": [
+  "growth<4",
+  "infl>=8",
+  "reserves vs 2021 peak",
+  "remit buffer",
+  "trade deficit"
+ ]
+}
