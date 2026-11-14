@@ -1,7 +1,7 @@
 {
- "updated_utc": "2026-11-13T08:15:41Z",
+ "updated_utc": "2026-11-14T07:57:18Z",
  "annual_through": 2025,
- "badge1": "CRISIS-SLOWDOWN + INFLATION EASING + EXTERNAL SHOCK",
+ "badge1": "CRISIS-SLOWDOWN + ELEVATED INFLATION + EXTERNAL SHOCK",
  "note": "Rule-based only. Geopolitics prose stays manual until Option 3 (LLM).",
  "watch": [
   "growth<4",
